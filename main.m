@@ -1,23 +1,30 @@
 %This is the Matlab code used for the paper:
+%
 %Yu Jiang and Zhong-Ping Jiang, "Robust Adaptive Dynamic Programming for
 %Large-Scale Systems with an Application to Multimachine Power Systems,"
 %IEEE Transactions on Circuits and Systems II: Express Briefs, vol. 59, no.
 %10, pp. 693-697, 2012. 
 %
-%Please feel free to contact me at yjiang06@students.poly.edu if you find
+%The code is free for everyone to use. Please cite the above paper in your 
+%publication if you do use the code.
+%
+%Please contact yu.jiang@nyu.edu if you find
 %any bug or have any suggestions on improving the code. Thanks!
 %
 clc
 clear all
+close all
 global Kadp
 warning off
 mm_para %load the parameters
 
 % simulate the system until 4s
 % operating in steady-state from 0s to 1s
-[t0,y0]=ode23(@mmsys_online_radp,[0,1],zeros(15*(Nm-1),1)); 
-% add an inpulse disturbance at 1s
-[t1,y1]=ode23(@mmsys_online_radp,[1,4],y0(end,:)'-[kron(pm(2:end),[0,0,1]),zeros(1,12*(Nm-1))]');
+disp('Simulating the system on steady state to 1s...')
+[t0,y0]=ode113(@mmsys_online_radp,[0,1],zeros(15*(Nm-1),1)); 
+% add an impulse disturbance at 1s
+disp('Adding an impulse disturbance at 1s and simulating to 4s...')
+[t1,y1]=ode113(@mmsys_online_radp,[1,4],y0(end,:)'-[kron(pm(2:end),[0,0,1]),zeros(1,12*(Nm-1))]');
 
 
 y=y1(end,:);
@@ -28,7 +35,7 @@ Ixx=zeros(N,9,Nm-1);Ixu=zeros(N,3,Nm-1);Dxx=zeros(N,6,Nm-1);
 yy=[y0;y1];tt=[t0;t1];
 %%
 for i=0:N-1
-    N-i
+    disp(['simulating the ', num2str(i+1),'-th interval...', num2str(N-i), 'left']);
     % simulate the trajectories for learning
     [t,y]=ode45(@mmsys_online_radp,[4+i/N,4+(i+1)/N],y(end,:));
     for j=1:Nm-1
@@ -63,11 +70,12 @@ for j=1:Nm-1
         Qk=1000*eye(3)+K(:,:,j)'*K(:,:,j);
         Theta=[Dxx(:,:,j) -2*Ixx(:,:,j)*kron(eye(3),K(:,:,j)')-2*Ixu(:,:,j)*kron(eye(3),1)];
         Psi=-Ixx(:,:,j)*Qk(:);
-        pv=inv(Theta'*Theta)*Theta'*Psi;
+        % pv=inv(Theta'*Theta)*Theta'*Psi;
+        pv=pinv(Theta)*Psi;
         K(:,:,j)=pv(end-2:end)';
     end
     Kadp(:,:,j)=K(:,:,j);
-    disp(['The' num2str(j+1) '-th. Learning stopped after' num2str(it) 'iterations'])
+    disp(['The' num2str(j+1) '-th machine stopped learning after' num2str(it) 'iterations'])
 end
 
 %%
